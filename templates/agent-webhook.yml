@@ -1,0 +1,47 @@
+# Bring-your-own-agent listener: forwards thread events to YOUR agent's API.
+# Secrets: AGENT_WEBHOOK_URL (required to activate), AGENT_WEBHOOK_SECRET
+# (optional HMAC, sent as X-Hub-Signature-256). Your agent replies by posting
+# an issue comment with its own GitHub token.
+# Payload: { event, repo, issue_number, title, body, labels[], component, comment_user, html_url }
+name: agent-webhook
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    if: github.event.comment.user.type != 'Bot'
+    env:
+      HOOK: ${{ secrets.AGENT_WEBHOOK_URL }}
+      HOOK_SECRET: ${{ secrets.AGENT_WEBHOOK_SECRET }}
+    steps:
+      - name: Forward to the configured agent
+        if: env.HOOK != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const crypto = require('crypto');
+            const e = context.payload;
+            const issue = e.issue || {};
+            const labels = (issue.labels || []).map(l => l.name);
+            const comp = labels.map(l => (l.match(/^component:([a-z0-9-]+)$/) || [])[1]).find(Boolean) || null;
+            const body = JSON.stringify({
+              event: context.eventName,
+              repo: process.env.GITHUB_REPOSITORY,
+              issue_number: issue.number,
+              title: issue.title,
+              body: (e.comment ? e.comment.body : issue.body) || '',
+              labels, component: comp,
+              comment_user: e.comment ? e.comment.user.login : issue.user.login,
+              html_url: e.comment ? e.comment.html_url : issue.html_url
+            });
+            const headers = { 'Content-Type': 'application/json', 'User-Agent': 'archwhere-webhook' };
+            if (process.env.HOOK_SECRET) {
+              headers['X-Hub-Signature-256'] = 'sha256=' + crypto.createHmac('sha256', process.env.HOOK_SECRET).update(body).digest('hex');
+            }
+            const res = await fetch(process.env.HOOK, { method: 'POST', headers, body });
+            core.info('agent webhook -> ' + res.status);

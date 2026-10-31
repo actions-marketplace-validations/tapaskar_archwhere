@@ -1,0 +1,15 @@
+# archwhere: comment every PR with the architecture components it touches.
+name: archwhere
+on:
+  pull_request:
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: tapaskar/archwhere@v1

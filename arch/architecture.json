@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "system": "archwhere",
+  "kinds": [
+    "core",
+    "security",
+    "feature",
+    "infra",
+    "product",
+    "ops",
+    "docs"
+  ],
+  "components": {
+    "core": {
+      "name": "Core mapper",
+      "kind": "core",
+      "description": "Model loading, glob mapping, renderers.",
+      "paths": [
+        "lib/where.js",
+        "bin/**"
+      ],
+      "deps": []
+    },
+    "rail": {
+      "name": "Rail & BYOA logic",
+      "kind": "core",
+      "description": "Attention-rail categorisation, agent mention.",
+      "paths": [
+        "lib/rail.js"
+      ],
+      "deps": [
+        "core"
+      ]
+    },
+    "mission": {
+      "name": "Mission control",
+      "kind": "product",
+      "description": "Local UI server + page.",
+      "paths": [
+        "lib/mission.js",
+        "ui/**"
+      ],
+      "deps": [
+        "core",
+        "rail"
+      ]
+    },
+    "archify": {
+      "name": "Archify compiler",
+      "kind": "feature",
+      "description": "Model \u2192 Archify IR.",
+      "paths": [
+        "lib/archify.js"
+      ],
+      "deps": [
+        "core"
+      ]
+    },
+    "integrations": {
+      "name": "Action & listeners",
+      "kind": "infra",
+      "description": "GitHub Action, consumer workflow templates, agent skill.",
+      "paths": [
+        "action.yml",
+        "templates/**",
+        "SKILL.md"
+      ],
+      "deps": []
+    },
+    "examples": {
+      "name": "Examples",
+      "kind": "docs",
+      "description": "Meridian fictional model.",
+      "paths": [
+        "examples/**"
+      ],
+      "deps": []
+    },
+    "ops": {
+      "name": "Ops & tests",
+      "kind": "ops",
+      "description": "CI and the test suite.",
+      "paths": [
+        ".github/**",
+        "test/**",
+        "package.json",
+        "package-lock.json",
+        ".gitignore",
+        "arch/**"
+      ],
+      "deps": []
+    },
+    "docs": {
+      "name": "Docs",
+      "kind": "docs",
+      "description": "README, license, images.",
+      "paths": [
+        "*.md",
+        "LICENSE",
+        "docs/**"
+      ],
+      "deps": []
+    }
+  },
+  "flows": {
+    "pr-map": {
+      "name": "PR gets mapped",
+      "actor": "Any pull request",
+      "steps": [
+        {
+          "from": "integrations",
+          "to": "core",
+          "label": "action runs the mapper"
+        },
+        {
+          "from": "core",
+          "to": "integrations",
+          "label": "comment with highlighted map"
+        }
+      ]
+    },
+    "thread": {
+      "name": "Thread to agent reply",
+      "actor": "Operator on the map",
+      "steps": [
+        {
+          "from": "mission",
+          "to": "rail",
+          "label": "new component thread"
+        },
+        {
+          "from": "rail",
+          "to": "integrations",
+          "label": "issue + mention fires listener"
+        },
+        {
+          "from": "integrations",
+          "to": "mission",
+          "label": "agent reply lands on the map"
+        }
+      ]
+    }
+  }
+}

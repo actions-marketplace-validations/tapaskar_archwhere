@@ -1,0 +1,33 @@
+name: archwhere
+description: Comment every PR with the architecture components it touches, on a highlighted system map.
+branding:
+  icon: map
+  color: orange
+inputs:
+  base:
+    description: Base ref to diff against (defaults to the PR base branch)
+    required: false
+  model:
+    description: Path to architecture.json (defaults to arch/architecture.json)
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Map changed components
+      shell: bash
+      run: |
+        BASE="${{ inputs.base }}"; [ -z "$BASE" ] && BASE="origin/${{ github.base_ref }}"
+        MODEL_ARG=""; [ -n "${{ inputs.model }}" ] && MODEL_ARG="--arch ${{ inputs.model }}"
+        node "${{ github.action_path }}/bin/archwhere.js" map --base "$BASE" --format md $MODEL_ARG > /tmp/archwhere-comment.md
+    - name: Upsert the PR comment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const body = fs.readFileSync('/tmp/archwhere-comment.md', 'utf8');
+          const { data: comments } = await github.rest.issues.listComments({
+            ...context.repo, issue_number: context.issue.number, per_page: 100
+          });
+          const mine = comments.find(c => c.body && c.body.startsWith('<!-- archwhere -->'));
+          if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
+          else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });

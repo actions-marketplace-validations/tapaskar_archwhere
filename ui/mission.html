@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>archwhere — mission control</title>
+<style>
+  * { box-sizing:border-box; margin:0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background:#F4F4F1; color:#1F2433; }
+  header { background:#1F2433; color:#FFF7EE; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:16px; font-weight:600; } #meta { color:#C0BCBA; font-size:12px; }
+  .lens { display:flex; gap:4px; background:#2F3341; border-radius:10px; padding:4px; }
+  .lens button { font-size:12.5px; padding:5px 13px; border-radius:7px; color:#C0BCBA; background:none; border:0; cursor:pointer; }
+  .lens button.on { background:#F7B32B; color:#1F2433; font-weight:700; }
+  .wrap { display:flex; gap:14px; padding:14px 20px; align-items:flex-start; }
+  /* rail */
+  #rail { width:330px; flex-shrink:0; background:#fff; border:1px solid #DDD; border-radius:12px; padding:12px; max-height:calc(100vh - 100px); overflow:auto; }
+  #rail h2 { font-size:12px; letter-spacing:1px; color:#8A8A8A; margin-bottom:8px; }
+  .sect { font-size:10.5px; font-weight:800; letter-spacing:1px; margin:10px 0 6px; }
+  .item { border:1.4px solid #E3E3DE; border-left-width:5px; border-radius:9px; padding:8px 10px; font-size:12px; line-height:1.4; background:#FBFBF9; margin-bottom:8px; cursor:pointer; }
+  .item:hover { border-color:#1F2433; } .item.sel { box-shadow:0 0 0 3px #F7B32B; }
+  .meta { display:flex; gap:6px; margin-top:5px; align-items:center; flex-wrap:wrap; }
+  .comp { font-size:10px; border-radius:7px; padding:1px 7px; color:#fff; background:#595959; }
+  .num { color:#2F4AC0; font-weight:600; font-size:11px; } .cc { font-size:10.5px; color:#6b7180; }
+  .mbtn { background:#0F7A5C; color:#fff; font-size:11px; border-radius:7px; padding:3px 10px; font-weight:700; border:0; cursor:pointer; }
+  .mbtn.confirm { background:#C2410C; }
+  /* map */
+  #map { flex:1; background:#fff; border:1px solid #DDD; border-radius:12px; padding:18px 18px 10px; overflow:auto; }
+  .lane { border:1.5px dashed #C9C9C4; border-radius:10px; position:relative; margin:14px 0 26px; padding:22px 14px 18px; display:flex; gap:14px; flex-wrap:wrap; }
+  .lane > b { position:absolute; top:-9px; left:14px; background:#fff; padding:0 8px; font-size:10.5px; color:#8A8A8A; letter-spacing:1px; }
+  .node { position:relative; width:168px; min-height:58px; border-radius:9px; border:1.6px solid; background:#fff; padding:7px 10px; cursor:pointer; }
+  .node .t { font-size:12.5px; font-weight:600; } .node .s { font-size:10px; color:#6b7180; display:block; }
+  .node .m { font-size:10.5px; color:#595f6e; margin-top:4px; line-height:1.45; display:none; }
+  body[data-lens="runtime"] .node .m { display:block; }
+  .k-product { border-color:#0F7A5C; background:#EFF8F3; } .k-core { border-color:#2F4AC0; background:#EEF2FB; }
+  .k-security { border-color:#C2410C; background:#FBEEE9; } .k-feature { border-color:#B45309; background:#FDF6E8; }
+  .k-infra { border-color:#595959; background:#F1F1F1; } .k-ops, .k-docs { border-color:#9a9a96; background:#F7F7F5; }
+  .node.sel { box-shadow:0 0 0 4px #F7B32B; }
+  .badge { position:absolute; top:-10px; right:-8px; background:#1F2433; color:#fff; font-size:10px; border-radius:10px; padding:1px 7px; border:2px solid #fff; display:none; }
+  .alert { position:absolute; top:-10px; left:8px; font-size:9.5px; color:#fff; font-weight:700; border-radius:8px; padding:1px 7px; border:2px solid #fff; display:none; }
+  body[data-lens="changes"] .badge, body[data-lens="changes"] .alert { display:block; }
+  .a-security { background:#C2410C; } .a-blocked { background:#B45309; }
+  body[data-lens="runtime"] .node { border-color:#C9C9C4 !important; background:#fff !important; }
+  .h-ok { box-shadow:0 0 0 4px rgba(18,161,80,.18) !important; border-color:#12A150 !important; }
+  .h-warn { box-shadow:0 0 0 4px rgba(232,162,0,.25) !important; border-color:#E8A200 !important; }
+  .h-bad { box-shadow:0 0 0 5px rgba(215,38,61,.28) !important; border-color:#D7263D !important; }
+  #rtnote { font-size:11.5px; color:#8A8A8A; margin:4px 2px 8px; display:none; }
+  body[data-lens="runtime"] #rtnote { display:block; }
+  /* panel */
+  #panel { width:420px; flex-shrink:0; background:#fff; border:1px solid #DDD; border-radius:12px; display:flex; flex-direction:column; max-height:calc(100vh - 100px); }
+  .phead { padding:12px 16px; border-bottom:1px solid #EEE; }
+  .phead .crumb { font-size:10.5px; color:#8A8A8A; } .phead .title { font-size:14px; font-weight:700; margin-top:2px; }
+  #plist { padding:10px 16px; overflow:auto; }
+  .trow { border:1.3px solid #E3E3DE; border-radius:8px; padding:7px 10px; font-size:12px; margin-bottom:7px; cursor:pointer; background:#FBFBF9; }
+  .trow:hover { border-color:#1F2433; }
+  #thread { padding:12px 16px; display:none; flex-direction:column; gap:10px; overflow:auto; flex:1; }
+  .msg { max-width:92%; border-radius:11px; padding:8px 12px; font-size:12.5px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .me { align-self:flex-end; background:#E8EEF9; border:1px solid #c9d4ee; }
+  .them { align-self:flex-start; background:#F6F6F3; border:1px solid #E3E3DE; }
+  .who { font-size:10.5px; color:#6b7180; margin-bottom:2px; } .who b { color:#1F2433; }
+  .bar { display:flex; gap:8px; padding:10px 16px; border-top:1px solid #EEE; }
+  .bar textarea { flex:1; border:1.4px solid #C9C9C4; border-radius:8px; padding:8px 10px; font:inherit; font-size:12.5px; resize:vertical; min-height:38px; }
+  .bar button { background:#1F2433; color:#fff; border:0; border-radius:8px; padding:0 16px; font-size:12.5px; cursor:pointer; }
+  .ghost { background:none; border:0; color:#2F4AC0; font-size:11.5px; cursor:pointer; padding:0; }
+  a { color:#2F4AC0; }
+</style></head><body data-lens="changes">
+<header>
+  <h1 id="htitle">mission control</h1>
+  <div class="lens">
+    <button data-l="structure">Structure</button>
+    <button data-l="changes" class="on">Changes 💬</button>
+    <button data-l="runtime">Runtime ●</button>
+  </div>
+  <span id="meta">loading…</span>
+</header>
+<div class="wrap">
+  <div id="rail"><h2>NEEDS YOUR ATTENTION</h2><div id="railbody">loading…</div></div>
+  <div id="map"><div id="rtnote"></div><div id="lanes"></div></div>
+  <div id="panel">
+    <div class="phead"><div class="crumb" id="pcrumb">Select a component or a rail item</div><div class="title" id="ptitle">—</div></div>
+    <div id="plist"></div>
+    <div id="thread"></div>
+    <div class="bar" id="composer" style="display:none">
+      <textarea id="cbody" placeholder=""></textarea>
+      <button id="csend">Send</button>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+let MODEL = null, STATE = null, RUNTIME = null;
+let sel = { component: null, thread: null, pr: null, mode: null }; // mode: 'list' | 'issue' | 'pr' | 'new'
+const KINDC = { security: '#C2410C', product: '#0F7A5C', core: '#2F4AC0', feature: '#B45309', infra: '#595959', ops: '#7E3FA0', docs: '#8A8A8A' };
+
+async function j(url, opts) { const r = await fetch(url, opts); const d = await r.json(); if (!r.ok || d.error) throw new Error(d.error || r.status); return d; }
+
+function lens() { return document.body.dataset.lens; }
+document.querySelectorAll('.lens button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.lens button').forEach(x => x.classList.toggle('on', x === b));
+  document.body.dataset.lens = b.dataset.l;
+  if (b.dataset.l === 'runtime') refreshRuntime();
+});
+
+function laneTitle(i) { return (MODEL.laneTitles && MODEL.laneTitles[i]) || 'LANE ' + (i + 1); }
+
+function renderMap() {
+  const box = $('#lanes'); box.innerHTML = '';
+  (MODEL.lanes.length ? MODEL.lanes : [Object.keys(MODEL.components)]).forEach((lane, i) => {
+    const el = document.createElement('div'); el.className = 'lane';
+    el.innerHTML = '<b>' + laneTitle(i) + '</b>';
+    for (const id of lane) {
+      const c = MODEL.components[id]; if (!c) continue;
+      const n = document.createElement('div');
+      n.className = 'node k-' + c.kind; n.id = 'n-' + id;
+      n.innerHTML = '<span class="t">' + c.name + '</span><span class="s">' + (c.sublabel || c.kind) + '</span>'
+        + '<span class="m"></span><span class="badge"></span><span class="alert"></span>';
+      n.onclick = () => selectComponent(id);
+      el.appendChild(n);
+    }
+    box.appendChild(el);
+  });
+}
+
+function renderBadges() {
+  if (!STATE) return;
+  for (const id of Object.keys(MODEL.components)) {
+    const n = $('#n-' + id); if (!n) continue;
+    const b = STATE.badges[id];
+    const badge = n.querySelector('.badge'), alert = n.querySelector('.alert');
+    const bits = [];
+    if (b && b.threads) bits.push('💬 ' + b.threads);
+    if (b && b.prs.length) bits.push('PR ' + b.prs.map(x => '#' + x).join(' '));
+    badge.textContent = bits.join(' · ');
+    badge.style.display = bits.length ? '' : 'none';
+    if (b && b.alert) { alert.textContent = b.alert; alert.className = 'alert a-' + b.alert; alert.style.display = ''; }
+    else { alert.textContent = ''; alert.style.display = 'none'; }
+  }
+}
+
+function railItem(it, sec) {
+  const d = document.createElement('div');
+  d.className = 'item'; d.style.borderLeftColor = { security: '#C2410C', blocked: '#B45309', attention: '#2F4AC0', mergeable: '#0F7A5C' }[sec];
+  const comps = it.components.map(c => '<span class="comp" style="background:' + (KINDC[(MODEL.components[c] || {}).kind] || '#595959') + '">' + c + '</span>').join('');
+  const merge = sec === 'mergeable' ? '<button class="mbtn" data-pr="' + it.number + '">Merge</button>' : '';
+  d.innerHTML = it.title + '<div class="meta">' + comps + '<span class="num">' + (it.kind === 'pr' ? 'PR ' : '') + '#' + it.number + '</span>'
+    + '<span class="cc">💬 ' + (it.comments || 0) + '</span>' + merge + '</div>';
+  d.onclick = e => { if (e.target.classList.contains('mbtn')) return; openItem(it); };
+  const mb = d.querySelector('.mbtn');
+  if (mb) mb.onclick = async e => {
+    e.stopPropagation();
+    if (!mb.classList.contains('confirm')) { mb.classList.add('confirm'); mb.textContent = 'Confirm merge'; setTimeout(() => { mb.classList.remove('confirm'); mb.textContent = 'Merge'; }, 4000); return; }
+    mb.disabled = true; mb.textContent = 'merging…';
+    try { await j('/api/merge', { method: 'POST', body: JSON.stringify({ number: it.number }) }); mb.textContent = 'merged ✓'; refreshState(); }
+    catch (err) { mb.textContent = 'failed'; mb.title = String(err); }
+  };
+  return d;
+}
+
+function renderRail() {
+  const rb = $('#railbody'); rb.innerHTML = '';
+  const SECT = { security: '🔴 SECURITY', blocked: '🟠 BLOCKED — needs your decision', attention: '🔵 PRs NEEDING ATTENTION', mergeable: '🟢 READY TO MERGE' };
+  const COL = { security: '#C2410C', blocked: '#B45309', attention: '#2F4AC0', mergeable: '#0F7A5C' };
+  for (const sec of ['security', 'blocked', 'attention', 'mergeable']) {
+    const items = STATE.rail[sec]; if (!items.length) continue;
+    const h = document.createElement('div'); h.className = 'sect'; h.style.color = COL[sec]; h.textContent = SECT[sec];
+    rb.appendChild(h);
+    for (const it of items) rb.appendChild(railItem(it, sec));
+  }
+  if (!rb.children.length) rb.textContent = 'Nothing needs you. Rare — enjoy it.';
+}
+
+function selectComponent(id) {
+  sel = { component: id, thread: null, pr: null, mode: 'list' };
+  document.querySelectorAll('.node').forEach(n => n.classList.toggle('sel', n.id === 'n-' + id));
+  const c = MODEL.components[id];
+  $('#pcrumb').textContent = 'Component · ' + c.kind;
+  $('#ptitle').textContent = c.name;
+  const list = $('#plist'); list.style.display = 'block'; $('#thread').style.display = 'none';
+  list.innerHTML = '';
+  const threads = STATE ? STATE.threads.filter(t => t.components.includes(id)) : [];
+  const prs = STATE ? STATE.prs.filter(p => p.components.includes(id)) : [];
+  for (const t of threads) {
+    const r = document.createElement('div'); r.className = 'trow';
+    r.innerHTML = '💬 <b>#' + t.number + '</b> ' + t.title + ' <span class="cc">· ' + t.comments + ' replies</span>';
+    r.onclick = () => openIssue(t.number); list.appendChild(r);
+  }
+  for (const p of prs) {
+    const r = document.createElement('div'); r.className = 'trow';
+    r.innerHTML = '⇄ <b>PR #' + p.number + '</b> ' + p.title + ' <span class="cc">· checks ' + (p.checkRuns ? '' : '') + (p.draft ? 'draft' : '') + '</span>';
+    r.onclick = () => openItem({ kind: 'pr', ...p }); list.appendChild(r);
+  }
+  const nb = document.createElement('button'); nb.className = 'ghost'; nb.textContent = '+ New thread on ' + c.name;
+  nb.onclick = () => { sel.mode = 'new'; $('#pcrumb').textContent = 'New thread · first line becomes the title'; showComposer('Describe what you want the coding agent to look at on ' + c.name + '…'); };
+  list.appendChild(nb);
+  showComposer(null);
+}
+
+function showComposer(placeholder) {
+  const comp = $('#composer');
+  if (placeholder === null && sel.mode === 'list') { comp.style.display = 'none'; return; }
+  comp.style.display = 'flex';
+  $('#cbody').placeholder = placeholder || ('Reply… ' + (MODEL.mention ? '(' + MODEL.mention + ' is summoned automatically)' : ''));
+}
+
+async function openIssue(number) {
+  sel.thread = number; sel.pr = null; sel.mode = 'issue';
+  const t = await j('/api/thread?number=' + number);
+  $('#pcrumb').innerHTML = 'Thread · <a href="' + t.url + '" target="_blank">#' + number + ' on GitHub</a>';
+  $('#ptitle').textContent = t.title;
+  $('#plist').style.display = 'none';
+  const th = $('#thread'); th.style.display = 'flex'; th.innerHTML = '';
+  const add = (user, at, body, mine) => {
+    const m = document.createElement('div'); m.className = 'msg ' + (mine ? 'me' : 'them');
+    m.innerHTML = '<div class="who"><b>' + user + '</b> · ' + new Date(at || Date.now()).toLocaleString() + '</div>';
+    m.appendChild(document.createTextNode(body || '')); th.appendChild(m);
+  };
+  add(t.user || 'owner', null, t.body, true);
+  for (const c of t.comments) add(c.user, c.at, c.body, MODEL.viewer && c.user === MODEL.viewer);
+  th.scrollTop = th.scrollHeight;
+  showComposer('Reply on #' + number + '…');
+}
+
+function openItem(it) {
+  if (it.kind === 'issue') return openIssue(it.number);
+  sel = { component: it.components[0] || null, thread: it.number, pr: it.number, mode: 'pr' };
+  if (sel.component) document.querySelectorAll('.node').forEach(n => n.classList.toggle('sel', n.id === 'n-' + sel.component));
+  openIssue(it.number); // a PR's conversation is its issue thread
+  $('#pcrumb').innerHTML = 'Pull request · <a href="' + (it.url || it.html_url || '#') + '" target="_blank">PR #' + it.number + '</a>'
+    + (it.branch ? ' · ' + it.branch : '');
+}
+
+$('#csend').onclick = async () => {
+  const body = $('#cbody').value.trim(); if (!body) return;
+  $('#csend').disabled = true;
+  try {
+    if (sel.mode === 'new' && sel.component) {
+      const lines = body.split('\n');
+      const r = await j('/api/thread', { method: 'POST', body: JSON.stringify({ component: sel.component, title: lines[0].slice(0, 80), body }) });
+      await refreshState(); await openIssue(r.number);
+    } else if (sel.thread) {
+      await j('/api/comment', { method: 'POST', body: JSON.stringify({ number: sel.thread, body }) });
+      await openIssue(sel.thread);
+    }
+    $('#cbody').value = '';
+  } catch (e) { alert('failed: ' + e.message); }
+  $('#csend').disabled = false;
+};
+
+async function refreshState() {
+  try {
+    STATE = await j('/api/state');
+    $('#meta').textContent = STATE.repo + ' · ' + new Date(STATE.generated).toLocaleTimeString() + (STATE.local.components.length ? ' · local edits: ' + STATE.local.components.join(', ') : '');
+    renderRail(); renderBadges();
+  } catch (e) { $('#meta').textContent = 'state error: ' + e.message; }
+}
+
+async function refreshRuntime() {
+  try {
+    RUNTIME = await j('/api/runtime');
+    $('#rtnote').textContent = RUNTIME.available ? 'runtime from obs · refreshed ' + new Date().toLocaleTimeString() : 'Runtime unavailable: ' + RUNTIME.reason;
+    for (const id of Object.keys(MODEL.components)) {
+      const n = $('#n-' + id); if (!n) continue;
+      n.classList.remove('h-ok', 'h-warn', 'h-bad');
+      const r = RUNTIME.available && RUNTIME.components && RUNTIME.components[id];
+      n.querySelector('.m').textContent = r ? (r.lines || []).join(' · ') : '';
+      if (r && r.status && r.status !== 'off') n.classList.add({ ok: 'h-ok', warn: 'h-warn', bad: 'h-bad' }[r.status] || 'h-ok');
+    }
+  } catch (e) { $('#rtnote').textContent = 'runtime error: ' + e.message; }
+}
+
+(async function init() {
+  MODEL = await j('/api/model');
+  document.title = MODEL.system + ' — mission control';
+  document.querySelector('#htitle').textContent = MODEL.system + ' — architecture mission control';
+  renderMap();
+  await refreshState();
+  setInterval(refreshState, 30000);
+  setInterval(() => { if (lens() === 'runtime') refreshRuntime(); }, 30000);
+})();
+</script>
+</body></html>

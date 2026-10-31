@@ -1,0 +1,42 @@
+{
+  "name": "archwhere",
+  "version": "0.1.0",
+  "description": "Put your AI coding agents' work on the architecture map: declared components, PR-to-component mapping, and a mission-control UI where you talk to agents on the diagram.",
+  "license": "MIT",
+  "author": "Tapas Kar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tapaskar/archwhere.git"
+  },
+  "homepage": "https://github.com/tapaskar/archwhere#readme",
+  "bin": {
+    "archwhere": "bin/archwhere.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "ui",
+    "templates",
+    "examples",
+    "action.yml",
+    "SKILL.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": [
+    "ai-agents",
+    "architecture",
+    "c4",
+    "architecture-as-code",
+    "mermaid",
+    "github-actions",
+    "claude",
+    "code-review",
+    "devtools",
+    "agentic"
+  ]
+}
