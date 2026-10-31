@@ -171,6 +171,11 @@ agent skill, or paste it into your agent's instructions.
 | dependency graphs | ✓ | hairball | n/a | — |
 | **archwhere** | ✓ | ✓ | ✓ | ✓ |
 
+## Onboarding at a glance
+
+From stranger to agent-replies-on-the-map in under twenty minutes — the full
+funnel, stage by stage: [docs/ONBOARDING.md](docs/ONBOARDING.md).
+
 ## License
 
 MIT © Tapas Kar. Built with and for AI coding agents — this repo's own model
