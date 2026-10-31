@@ -1,5 +1,5 @@
 name: archwhere
-description: Know where your AI agents’ PRs land: comments each one with the architecture components touched, on a highlighted system map.
+description: "Know where your AI agents’ PRs land — comments each PR with the architecture components touched, on a highlighted system map."
 branding:
   icon: map
   color: orange
