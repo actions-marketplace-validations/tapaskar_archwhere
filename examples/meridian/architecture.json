@@ -33,7 +33,7 @@
   ],
   "laneTitles": [
     "PRODUCTS",
-    "CORE \u00b7 SECURITY",
+    "CORE · SECURITY",
     "FEATURES",
     "PLATFORM"
   ],
@@ -81,7 +81,7 @@
     "ticket-engine": {
       "name": "Ticket engine",
       "kind": "core",
-      "sublabel": "state machine \u00b7 SLAs",
+      "sublabel": "state machine · SLAs",
       "description": "Ticket lifecycle, assignment, SLA timers.",
       "paths": [
         "core/tickets/**"
@@ -95,7 +95,7 @@
     "auth": {
       "name": "Auth & sessions",
       "kind": "security",
-      "sublabel": "SSO \u00b7 RBAC",
+      "sublabel": "SSO · RBAC",
       "description": "Login, SSO, roles. Fail-closed.",
       "paths": [
         "core/auth/**"
@@ -103,7 +103,7 @@
       "watch": [
         {
           "pattern": "session|token|rbac",
-          "note": "touches session/RBAC logic \u2014 security review"
+          "note": "touches session/RBAC logic — security review"
         }
       ],
       "deps": [],
@@ -112,7 +112,7 @@
     "search": {
       "name": "Search",
       "kind": "feature",
-      "sublabel": "indexing \u00b7 queries",
+      "sublabel": "indexing · queries",
       "description": "Ticket and KB search.",
       "paths": [
         "features/search/**"
@@ -125,7 +125,7 @@
     "notifications": {
       "name": "Notifications",
       "kind": "feature",
-      "sublabel": "email \u00b7 push",
+      "sublabel": "email · push",
       "description": "Outbound email/push.",
       "paths": [
         "features/notify/**"
@@ -138,7 +138,7 @@
     "billing": {
       "name": "Billing",
       "kind": "feature",
-      "sublabel": "plans \u00b7 invoices",
+      "sublabel": "plans · invoices",
       "description": "Subscriptions and invoices.",
       "paths": [
         "features/billing/**"
@@ -149,7 +149,7 @@
     "llm-gateway": {
       "name": "LLM gateway",
       "kind": "infra",
-      "sublabel": "models \u00b7 budget",
+      "sublabel": "models · budget",
       "description": "Model routing, token budgets, caching.",
       "paths": [
         "platform/llm/**"
@@ -160,7 +160,7 @@
     "jobs": {
       "name": "Jobs & queues",
       "kind": "infra",
-      "sublabel": "workers \u00b7 cron",
+      "sublabel": "workers · cron",
       "description": "Background work.",
       "paths": [
         "platform/jobs/**"
@@ -175,7 +175,8 @@
       "paths": [
         ".github/**",
         "scripts/**",
-        "package.json"
+        "package.json",
+        "arch/**"
       ],
       "deps": []
     },

@@ -28,7 +28,7 @@ the map goes stale). You read components, not diffs.
 ## Quickstart
 
 ```bash
-npx archwhere init --infer
+npx archwhere init
 ```
 
 That **drafts the model from your repo itself** — directory structure,

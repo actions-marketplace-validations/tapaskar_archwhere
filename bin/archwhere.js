@@ -16,7 +16,7 @@ archwhere — which architecture component does this change touch?
   archwhere heat [--days 30]                                     change heat per component from git history
   archwhere ir   [--out arch/build]                              Archify IR diagrams
   archwhere mission [--port 4610]                                mission-control UI
-  archwhere init [--infer]                                       scaffold model + workflows; --infer drafts the model from the repo
+  archwhere init [--starter]                                     draft the model from your repo + write workflows; --starter copies the example model instead
 
 Common: --arch <path to architecture.json> · env ARCHWHERE_MODEL
 Mission env: GITHUB_TOKEN (or gh auth token) · AGENT_MENTION · RUNTIME_URL/RUNTIME_BASIC
@@ -34,7 +34,7 @@ function main() {
     process.stdout.write(USAGE); return;
   }
 
-  if (cmd === 'init') return init(root, args.includes('--infer'));
+  if (cmd === 'init') return init(root, !args.includes('--starter'));
 
   if (cmd === 'mission') {
     const { makeServer } = require('../lib/mission');
@@ -148,17 +148,31 @@ function init(root, infer) {
   const modelPath = path.join(dir, 'architecture.json');
   if (fs.existsSync(modelPath)) { console.log('arch/architecture.json already exists — not touching it.'); }
   else if (infer) {
-    const { inferModel } = require('../lib/infer');
-    const { model, stats } = inferModel(root);
-    fs.writeFileSync(modelPath, JSON.stringify(model, null, 2) + '\n');
-    console.log(`wrote arch/architecture.json — inferred ${stats.components} components from ${stats.files} files (${stats.deps} import edges)`);
-    console.log('it is a draft: rename, fix kinds, add flows. `archwhere check` already passes.');
+    try {
+      const { inferModel } = require('../lib/infer');
+      const { model, stats } = inferModel(root);
+      // init is about to write these — the model must own its own scaffolding
+      const scaffold = ['arch/architecture.json', '.github/workflows/archwhere.yml'];
+      const miss = W.mapFiles(model, scaffold).unmapped;
+      if (miss.length) {
+        const bucket = model.components.repo || model.components.ops
+          || (model.components.repo = { name: 'Repo & tooling', kind: 'ops', description: 'Root files, CI and the architecture model itself.', paths: [], deps: [] });
+        for (const f of miss) bucket.paths.push(f.startsWith('.github/') ? '.github/**' : 'arch/**');
+        bucket.paths = [...new Set(bucket.paths)];
+      }
+      fs.writeFileSync(modelPath, JSON.stringify(model, null, 2) + '\n');
+      console.log(`wrote arch/architecture.json — inferred ${stats.components} components from ${stats.files} files (${stats.deps} import edges)`);
+      console.log('it is a draft: rename, fix kinds, add flows. `archwhere check` already passes.');
+    } catch (e) {
+      console.log(`could not infer a model (${e.message}) — falling back to the starter example.`);
+      return init(root, false);
+    }
   } else {
     const starter = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'examples', 'meridian', 'architecture.json'), 'utf8'));
     starter.system = path.basename(root);
     starter.note = 'STARTER MODEL — replace the example components with your real ones. ' + starter.note;
     fs.writeFileSync(modelPath, JSON.stringify(starter, null, 2) + '\n');
-    console.log('wrote arch/architecture.json (starter — replace the example components; or rerun with --infer)');
+    console.log('wrote arch/architecture.json (starter — replace the example components; `archwhere check` fails until you do)');
   }
   const wfDir = path.join(root, '.github', 'workflows');
   fs.mkdirSync(wfDir, { recursive: true });
@@ -171,8 +185,8 @@ function init(root, infer) {
   console.log(`
 Next — let your coding agent write the real model. Paste this to it:
 
-  Survey this repository and replace the starter arch/architecture.json with
-  the real model: 10–20 declared components (not an import graph), each with
+  Survey this repository and refine arch/architecture.json into the real
+  model: 10–20 declared components (not an import graph), each with
   name, kind (core/security/feature/infra/product/ops/docs), description,
   the file globs it owns, deps, and watch patterns for review-sensitive code.
   Add 2–3 "flows" for the main user journeys. Every tracked file must map to
