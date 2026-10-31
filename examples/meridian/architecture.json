@@ -2,58 +2,235 @@
   "version": 1,
   "system": "Meridian",
   "note": "Example model for a fictional customer-support SaaS. Globs: ** crosses directories, * stays within one. The longest matching glob wins. Keep this file current: a PR that adds a module extends a component here in the same PR.",
-  "kinds": ["core", "security", "feature", "infra", "product", "ops", "docs"],
-  "lanes": [
-    ["web-app", "mobile-api", "admin-console"],
-    ["ticket-engine", "auth"],
-    ["search", "notifications", "billing"],
-    ["llm-gateway", "jobs"]
+  "kinds": [
+    "core",
+    "security",
+    "feature",
+    "infra",
+    "product",
+    "ops",
+    "docs"
   ],
-  "laneTitles": ["PRODUCTS", "CORE · SECURITY", "FEATURES", "PLATFORM"],
+  "lanes": [
+    [
+      "web-app",
+      "mobile-api",
+      "admin-console"
+    ],
+    [
+      "ticket-engine",
+      "auth"
+    ],
+    [
+      "search",
+      "notifications",
+      "billing"
+    ],
+    [
+      "llm-gateway",
+      "jobs"
+    ]
+  ],
+  "laneTitles": [
+    "PRODUCTS",
+    "CORE \u00b7 SECURITY",
+    "FEATURES",
+    "PLATFORM"
+  ],
   "components": {
-    "web-app": { "name": "Web app", "kind": "product", "sublabel": "customer portal",
-      "description": "Customer-facing ticket portal.", "paths": ["web/**"], "deps": ["ticket-engine", "auth"] },
-    "mobile-api": { "name": "Mobile API", "kind": "product", "sublabel": "REST for iOS/Android",
-      "description": "Mobile client API.", "paths": ["api/mobile/**"], "deps": ["ticket-engine", "auth"] },
-    "admin-console": { "name": "Admin console", "kind": "product", "sublabel": "agents & admins",
-      "description": "Support-agent console.", "paths": ["admin/**"], "deps": ["ticket-engine"] },
-    "ticket-engine": { "name": "Ticket engine", "kind": "core", "sublabel": "state machine · SLAs",
-      "description": "Ticket lifecycle, assignment, SLA timers.", "paths": ["core/tickets/**"],
-      "deps": ["search", "notifications", "llm-gateway"] },
-    "auth": { "name": "Auth & sessions", "kind": "security", "sublabel": "SSO · RBAC",
-      "description": "Login, SSO, roles. Fail-closed.", "paths": ["core/auth/**"],
-      "watch": [{ "pattern": "session|token|rbac", "note": "touches session/RBAC logic — security review" }], "deps": [] },
-    "search": { "name": "Search", "kind": "feature", "sublabel": "indexing · queries",
-      "description": "Ticket and KB search.", "paths": ["features/search/**"], "deps": ["jobs"] },
-    "notifications": { "name": "Notifications", "kind": "feature", "sublabel": "email · push",
-      "description": "Outbound email/push.", "paths": ["features/notify/**"], "deps": ["jobs"] },
-    "billing": { "name": "Billing", "kind": "feature", "sublabel": "plans · invoices",
-      "description": "Subscriptions and invoices.", "paths": ["features/billing/**"], "deps": [] },
-    "llm-gateway": { "name": "LLM gateway", "kind": "infra", "sublabel": "models · budget",
-      "description": "Model routing, token budgets, caching.", "paths": ["platform/llm/**"], "deps": [] },
-    "jobs": { "name": "Jobs & queues", "kind": "infra", "sublabel": "workers · cron",
-      "description": "Background work.", "paths": ["platform/jobs/**"], "deps": [] },
-    "ops": { "name": "Ops & CI", "kind": "ops", "description": "CI, scripts, infra config.",
-      "paths": [".github/**", "scripts/**", "package.json"], "deps": [] },
-    "docs": { "name": "Docs", "kind": "docs", "description": "Repo docs.", "paths": ["docs/**", "*.md"], "deps": [] }
+    "web-app": {
+      "name": "Web app",
+      "kind": "product",
+      "sublabel": "customer portal",
+      "description": "Customer-facing ticket portal.",
+      "paths": [
+        "web/**"
+      ],
+      "deps": [
+        "ticket-engine",
+        "auth"
+      ],
+      "provider": "Next.js on Vercel"
+    },
+    "mobile-api": {
+      "name": "Mobile API",
+      "kind": "product",
+      "sublabel": "REST for iOS/Android",
+      "description": "Mobile client API.",
+      "paths": [
+        "api/mobile/**"
+      ],
+      "deps": [
+        "ticket-engine",
+        "auth"
+      ],
+      "provider": "Fastify on ECS"
+    },
+    "admin-console": {
+      "name": "Admin console",
+      "kind": "product",
+      "sublabel": "agents & admins",
+      "description": "Support-agent console.",
+      "paths": [
+        "admin/**"
+      ],
+      "deps": [
+        "ticket-engine"
+      ]
+    },
+    "ticket-engine": {
+      "name": "Ticket engine",
+      "kind": "core",
+      "sublabel": "state machine \u00b7 SLAs",
+      "description": "Ticket lifecycle, assignment, SLA timers.",
+      "paths": [
+        "core/tickets/**"
+      ],
+      "deps": [
+        "search",
+        "notifications",
+        "llm-gateway"
+      ]
+    },
+    "auth": {
+      "name": "Auth & sessions",
+      "kind": "security",
+      "sublabel": "SSO \u00b7 RBAC",
+      "description": "Login, SSO, roles. Fail-closed.",
+      "paths": [
+        "core/auth/**"
+      ],
+      "watch": [
+        {
+          "pattern": "session|token|rbac",
+          "note": "touches session/RBAC logic \u2014 security review"
+        }
+      ],
+      "deps": [],
+      "provider": "Auth0 + RBAC"
+    },
+    "search": {
+      "name": "Search",
+      "kind": "feature",
+      "sublabel": "indexing \u00b7 queries",
+      "description": "Ticket and KB search.",
+      "paths": [
+        "features/search/**"
+      ],
+      "deps": [
+        "jobs"
+      ],
+      "provider": "OpenSearch"
+    },
+    "notifications": {
+      "name": "Notifications",
+      "kind": "feature",
+      "sublabel": "email \u00b7 push",
+      "description": "Outbound email/push.",
+      "paths": [
+        "features/notify/**"
+      ],
+      "deps": [
+        "jobs"
+      ],
+      "provider": "SES + FCM"
+    },
+    "billing": {
+      "name": "Billing",
+      "kind": "feature",
+      "sublabel": "plans \u00b7 invoices",
+      "description": "Subscriptions and invoices.",
+      "paths": [
+        "features/billing/**"
+      ],
+      "deps": [],
+      "provider": "Stripe"
+    },
+    "llm-gateway": {
+      "name": "LLM gateway",
+      "kind": "infra",
+      "sublabel": "models \u00b7 budget",
+      "description": "Model routing, token budgets, caching.",
+      "paths": [
+        "platform/llm/**"
+      ],
+      "deps": [],
+      "provider": "AWS Bedrock"
+    },
+    "jobs": {
+      "name": "Jobs & queues",
+      "kind": "infra",
+      "sublabel": "workers \u00b7 cron",
+      "description": "Background work.",
+      "paths": [
+        "platform/jobs/**"
+      ],
+      "deps": [],
+      "provider": "SQS + Lambda"
+    },
+    "ops": {
+      "name": "Ops & CI",
+      "kind": "ops",
+      "description": "CI, scripts, infra config.",
+      "paths": [
+        ".github/**",
+        "scripts/**",
+        "package.json"
+      ],
+      "deps": []
+    },
+    "docs": {
+      "name": "Docs",
+      "kind": "docs",
+      "description": "Repo docs.",
+      "paths": [
+        "docs/**",
+        "*.md"
+      ],
+      "deps": []
+    }
   },
   "flows": {
     "ticket-reply": {
       "name": "Customer reply to resolved ticket",
       "actor": "Customer on the web portal",
       "steps": [
-        { "from": "web-app", "to": "ticket-engine", "label": "reply reopens ticket" },
-        { "from": "ticket-engine", "to": "llm-gateway", "label": "draft suggested answer" },
-        { "from": "ticket-engine", "to": "notifications", "label": "notify assigned agent" }
+        {
+          "from": "web-app",
+          "to": "ticket-engine",
+          "label": "reply reopens ticket"
+        },
+        {
+          "from": "ticket-engine",
+          "to": "llm-gateway",
+          "label": "draft suggested answer"
+        },
+        {
+          "from": "ticket-engine",
+          "to": "notifications",
+          "label": "notify assigned agent"
+        }
       ]
     },
     "signup": {
       "name": "Team signup to first ticket",
       "actor": "New team admin",
       "steps": [
-        { "from": "web-app", "to": "auth", "label": "SSO signup" },
-        { "from": "auth", "to": "billing", "label": "start trial plan" },
-        { "from": "web-app", "to": "ticket-engine", "label": "first ticket created" }
+        {
+          "from": "web-app",
+          "to": "auth",
+          "label": "SSO signup"
+        },
+        {
+          "from": "auth",
+          "to": "billing",
+          "label": "start trial plan"
+        },
+        {
+          "from": "web-app",
+          "to": "ticket-engine",
+          "label": "first ticket created"
+        }
       ]
     }
   }

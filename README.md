@@ -134,6 +134,7 @@ One file, declared judgment — not an auto-extracted import hairball:
   "components": {
     "auth": {
       "name": "Auth & sessions", "kind": "security",
+      "provider": "Auth0 + RBAC",               // shows on every surface: map, PR comment, docs, mission UI
       "paths": ["core/auth/**"],                  // ** crosses dirs, * stays in one; longest match wins
       "watch": [{ "pattern": "session|token|rbac", "note": "security review" }],
       "deps": []

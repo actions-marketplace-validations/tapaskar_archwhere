@@ -25,7 +25,7 @@
   #map { flex:1; background:#fff; border:1px solid #DDD; border-radius:12px; padding:18px 18px 10px; overflow:auto; }
   .lane { border:1.5px dashed #C9C9C4; border-radius:10px; position:relative; margin:14px 0 26px; padding:22px 14px 18px; display:flex; gap:14px; flex-wrap:wrap; }
   .lane > b { position:absolute; top:-9px; left:14px; background:#fff; padding:0 8px; font-size:10.5px; color:#8A8A8A; letter-spacing:1px; }
-  .node { position:relative; width:168px; min-height:58px; border-radius:9px; border:1.6px solid; background:#fff; padding:7px 10px; cursor:pointer; }
+  .node { position:relative; width:172px; min-height:64px; border-radius:9px; border:1.6px solid; background:#fff; padding:7px 10px; cursor:pointer; }
   .node .t { font-size:12.5px; font-weight:600; } .node .s { font-size:10px; color:#6b7180; display:block; }
   .node .m { font-size:10.5px; color:#595f6e; margin-top:4px; line-height:1.45; display:none; }
   body[data-lens="runtime"] .node .m { display:block; }
@@ -110,7 +110,8 @@ function renderMap() {
       const c = MODEL.components[id]; if (!c) continue;
       const n = document.createElement('div');
       n.className = 'node k-' + c.kind; n.id = 'n-' + id;
-      n.innerHTML = '<span class="t">' + c.name + '</span><span class="s">' + (c.sublabel || c.kind) + '</span>'
+      const prov = c.provider ? '<span class="s" style="color:#8a6d3b">' + c.provider + '</span>' : '';
+      n.innerHTML = '<span class="t">' + c.name + '</span><span class="s">' + (c.sublabel || c.kind) + '</span>' + prov
         + '<span class="m"></span><span class="badge"></span><span class="alert"></span>';
       n.onclick = () => selectComponent(id);
       el.appendChild(n);

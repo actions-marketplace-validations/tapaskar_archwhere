@@ -53,3 +53,11 @@ test('doc and mermaid render with flows and styles', () => {
   assert.ok(mm.includes('classDef security'));
   assert.ok(mm.includes('class auth touched'));
 });
+
+test('provider renders on mermaid labels and the doc table', () => {
+  const mm = W.mermaid(arch, []);
+  assert.ok(mm.includes('LLM gateway<br/><i>AWS Bedrock</i>'));
+  const doc = W.renderFullMd(arch);
+  assert.ok(doc.includes('| Provider |'));
+  assert.ok(doc.includes('Stripe'));
+});
