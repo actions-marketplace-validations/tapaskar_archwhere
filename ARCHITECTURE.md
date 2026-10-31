@@ -35,7 +35,7 @@ flowchart LR
 
 | Component | Kind | Provider | What it is | Owns |
 |---|---|---|---|---|
-| **Core mapper** | core |  | Model loading, glob mapping, renderers. | `lib/where.js` `bin/**` |
+| **Core mapper** | core |  | Model loading, glob mapping, renderers. | `lib/where.js` `bin/**` `lib/infer.js` |
 | **Rail & BYOA logic** | core |  | Attention-rail categorisation, agent mention. | `lib/rail.js` |
 | **Mission control** | product | Node http · localhost | Local UI server + page. | `lib/mission.js` `ui/**` |
 | **Archify compiler** | feature |  | Model → Archify IR. | `lib/archify.js` |

@@ -28,13 +28,16 @@ the map goes stale). You read components, not diffs.
 ## Quickstart
 
 ```bash
-npx archwhere init
+npx archwhere init --infer
 ```
 
-That writes a starter `arch/architecture.json`, the PR-comment workflow, and two
-agent listeners — then prints a prompt you paste to your coding agent so *it*
-writes the real model by surveying the repo. The cold-start problem every
-architecture-as-code tool dies on? Your agent does that part.
+That **drafts the model from your repo itself** — directory structure,
+`package.json` workspaces, import edges — with guessed kinds (auth → security,
+ui → product, scripts → ops), plus the PR-comment workflow and two agent
+listeners. `archwhere check` passes from minute one; you rename and refine
+instead of starting from a blank file. It also prints a prompt you paste to
+your coding agent so *it* polishes the model by surveying the repo. The
+cold-start problem every architecture-as-code tool dies on? Automated.
 
 Daily driver:
 
@@ -42,9 +45,19 @@ Daily driver:
 npx archwhere                    # what is my working tree touching?
 npx archwhere --base origin/main # what does this branch touch?
 npx archwhere check              # CI guard: model valid, no file unmapped, no stale glob
+npx archwhere check --fix        # adopt unmapped files into the nearest component
+npx archwhere heat               # which components churned most in the last 30 days?
 npx archwhere doc --out ARCHITECTURE.md
 npx archwhere mission            # the UI at http://localhost:4610
 ```
+
+## The map heals itself
+
+When an agent's PR adds files the model doesn't own, the PR comment doesn't
+just complain — it **suggests the exact patch** (adopt into the nearest
+component, or create a new one), and `archwhere check --fix` applies it. Tell
+your agents "run `check --fix` and review the adopted globs" and the map stays
+alive with no human bookkeeping.
 
 ## Every PR gets mapped
 
@@ -107,8 +120,10 @@ flowchart LR
   PRs ready to merge (the Merge button uses *your* token; agents never merge).
 - **Click any component → open a thread.** Threads are GitHub issues labelled
   `component:<id>` (auto-created). Your agent answers; the reply appears on the map.
-- **Three lenses** — Structure / Changes / Runtime. Runtime colours components by
-  live health from any endpoint you point `RUNTIME_URL` at, returning
+- **Four lenses** — Structure / Changes / Heat / Runtime.
+  **Heat** colours components by git churn over the last 30 days — where your
+  agents are actually spending effort. **Runtime** colours them by live health
+  from any endpoint you point `RUNTIME_URL` at, returning
   `{"components": {"<id>": {"status": "ok|warn|bad", "lines": ["…"]}}}`.
 
 ### Bring your own coding agent

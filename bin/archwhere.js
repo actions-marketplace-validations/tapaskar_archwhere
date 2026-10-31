@@ -12,10 +12,11 @@ archwhere — which architecture component does this change touch?
 
   archwhere [map] [--base REF] [--format text|md|mermaid|html]   map a diff
   archwhere doc  [--out ARCHITECTURE.md]                         full map doc
-  archwhere check                                                model sanity (CI-friendly)
+  archwhere check [--fix]                                        model sanity (CI-friendly); --fix adopts unmapped files
+  archwhere heat [--days 30]                                     change heat per component from git history
   archwhere ir   [--out arch/build]                              Archify IR diagrams
   archwhere mission [--port 4610]                                mission-control UI
-  archwhere init                                                 scaffold model + workflows
+  archwhere init [--infer]                                       scaffold model + workflows; --infer drafts the model from the repo
 
 Common: --arch <path to architecture.json> · env ARCHWHERE_MODEL
 Mission env: GITHUB_TOKEN (or gh auth token) · AGENT_MENTION · RUNTIME_URL/RUNTIME_BASIC
@@ -33,7 +34,7 @@ function main() {
     process.stdout.write(USAGE); return;
   }
 
-  if (cmd === 'init') return init(root);
+  if (cmd === 'init') return init(root, args.includes('--infer'));
 
   if (cmd === 'mission') {
     const { makeServer } = require('../lib/mission');
@@ -81,8 +82,39 @@ function main() {
         if (!s.label) errors.push(`flow ${fid}: step needs a label`);
       }
     }
-    if (errors.length) { for (const e of errors) console.error('✗ ' + e); process.exit(1); }
+    if (errors.length) {
+      for (const e of errors) console.error('✗ ' + e);
+      if (tracked.length) {
+        const { unmapped } = W.mapFiles(arch, tracked);
+        if (unmapped.length) {
+          const patch = W.suggestPatch(arch, unmapped);
+          if (args.includes('--fix')) {
+            console.error('\n' + W.applyPatch(arch, patch));
+            console.error('re-run `archwhere check` to confirm, then review the adopted globs.');
+          } else {
+            console.error('\nsuggested fixes (apply with `archwhere check --fix`):');
+            for (const l of W.patchLines(arch, patch)) console.error('  + ' + l);
+          }
+        }
+      }
+      process.exit(1);
+    }
     console.log(`✓ model ok: ${Object.keys(arch.components).length} components, ${Object.keys(arch.flows || {}).length} flows, every tracked file mapped`);
+    return;
+  }
+
+  if (cmd === 'heat') {
+    const days = parseInt(arg(args, '--days') || '30', 10);
+    const heat = W.changeHeat(root, arch, days);
+    if (!heat) { console.error('no git history available'); process.exit(1); }
+    const rows = Object.entries(heat.components).sort((a, b) => b[1].changes - a[1].changes);
+    if (!rows.length) { console.log(`no changes in the last ${days} days`); return; }
+    console.log(`change heat, last ${days} days  (changes × files)\n`);
+    for (const [id, h] of rows) {
+      const c = arch.components[id];
+      const bar = '█'.repeat(Math.max(1, Math.round(24 * h.changes / heat.max)));
+      console.log(`  ${(c ? c.name : id).padEnd(26)} ${String(h.changes).padStart(4)} × ${String(h.files).padStart(3)}  ${bar}`);
+    }
     return;
   }
 
@@ -110,17 +142,23 @@ function main() {
   else process.stdout.write(W.renderText(arch, res, flags) + '\n');
 }
 
-function init(root) {
+function init(root, infer) {
   const dir = path.join(root, 'arch');
   fs.mkdirSync(dir, { recursive: true });
   const modelPath = path.join(dir, 'architecture.json');
   if (fs.existsSync(modelPath)) { console.log('arch/architecture.json already exists — not touching it.'); }
-  else {
+  else if (infer) {
+    const { inferModel } = require('../lib/infer');
+    const { model, stats } = inferModel(root);
+    fs.writeFileSync(modelPath, JSON.stringify(model, null, 2) + '\n');
+    console.log(`wrote arch/architecture.json — inferred ${stats.components} components from ${stats.files} files (${stats.deps} import edges)`);
+    console.log('it is a draft: rename, fix kinds, add flows. `archwhere check` already passes.');
+  } else {
     const starter = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'examples', 'meridian', 'architecture.json'), 'utf8'));
     starter.system = path.basename(root);
     starter.note = 'STARTER MODEL — replace the example components with your real ones. ' + starter.note;
     fs.writeFileSync(modelPath, JSON.stringify(starter, null, 2) + '\n');
-    console.log('wrote arch/architecture.json (starter — replace the example components)');
+    console.log('wrote arch/architecture.json (starter — replace the example components; or rerun with --infer)');
   }
   const wfDir = path.join(root, '.github', 'workflows');
   fs.mkdirSync(wfDir, { recursive: true });

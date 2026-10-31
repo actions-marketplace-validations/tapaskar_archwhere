@@ -17,7 +17,8 @@
       "description": "Model loading, glob mapping, renderers.",
       "paths": [
         "lib/where.js",
-        "bin/**"
+        "bin/**",
+        "lib/infer.js"
       ],
       "deps": []
     },
@@ -44,12 +45,12 @@
         "core",
         "rail"
       ],
-      "provider": "Node http \u00b7 localhost"
+      "provider": "Node http · localhost"
     },
     "archify": {
       "name": "Archify compiler",
       "kind": "feature",
-      "description": "Model \u2192 Archify IR.",
+      "description": "Model → Archify IR.",
       "paths": [
         "lib/archify.js"
       ],
