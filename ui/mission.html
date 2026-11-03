@@ -62,6 +62,12 @@
   .bar { display:flex; gap:8px; padding:10px 16px; border-top:1px solid #EEE; }
   .bar textarea { flex:1; border:1.4px solid #C9C9C4; border-radius:8px; padding:8px 10px; font:inherit; font-size:12.5px; resize:vertical; min-height:38px; }
   .bar button { background:#1F2433; color:#fff; border:0; border-radius:8px; padding:0 16px; font-size:12.5px; cursor:pointer; }
+  .cdet { border:1.3px solid #E3E3DE; border-radius:8px; padding:10px 12px; font-size:12px; margin-bottom:10px; background:#fff; line-height:1.45; }
+  .cdet h4 { margin:8px 0 3px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:#6b7180; }
+  .cdet code { font-size:11px; background:#F3F3EF; padding:1px 4px; border-radius:4px; }
+  .cdet .chip { display:inline-block; border:1px solid #D5D5CF; border-radius:10px; padding:1px 8px; margin:2px 3px 0 0; cursor:pointer; font-size:11px; }
+  .cdet .chip:hover { border-color:#1F2433; }
+  .cdet .st-ok { color:#1E7A46; } .cdet .st-warn { color:#A86400; } .cdet .st-bad { color:#B42318; }
   .ghost { background:none; border:0; color:#2F4AC0; font-size:11.5px; cursor:pointer; padding:0; }
   a { color:#2F4AC0; }
 </style></head><body data-lens="changes">
@@ -174,6 +180,30 @@ function renderRail() {
   if (!rb.children.length) rb.textContent = 'Nothing needs you. Rare — enjoy it.';
 }
 
+// Details card for a component: what it is, its files, what it uses and what uses it, owner-review
+// zones, live health (Runtime lens data) and the flows that pass through it. All from the model.
+function componentDetails(id) {
+  const c = MODEL.components[id];
+  const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const name = d => (MODEL.components[d] ? MODEL.components[d].name : d);
+  const usedBy = Object.keys(MODEL.components).filter(k => (MODEL.components[k].deps || []).includes(id));
+  const flows = Object.entries(MODEL.flows || {}).filter(([, f]) => JSON.stringify(f.steps || f).includes('"' + id + '"'));
+  const chips = ids => ids.length ? ids.map(d => '<span class="chip" data-c="' + esc(d) + '">' + esc(name(d)) + '</span>').join('') : '<span class="cc">none</span>';
+  const r = RUNTIME && RUNTIME.available && RUNTIME.components && RUNTIME.components[id];
+  const el = document.createElement('div'); el.className = 'cdet';
+  el.innerHTML = '<div>' + esc(c.description || '') + '</div>'
+    + (c.provider ? '<h4>Provider</h4>' + esc(c.provider) : '')
+    + '<h4>Health</h4>' + (r ? '<span class="st-' + esc(r.status) + '">● ' + esc(r.status) + '</span> · ' + esc((r.lines || []).join(' · '))
+        : '<span class="cc">' + (RUNTIME && !RUNTIME.available ? 'runtime unavailable (' + esc(RUNTIME.reason) + ')' : 'no runtime signal for this component') + '</span>')
+    + '<h4>Uses</h4>' + chips(c.deps || [])
+    + '<h4>Used by</h4>' + chips(usedBy)
+    + '<h4>Flows through it</h4>' + (flows.length ? flows.map(([k, f]) => esc(f.name || f.title || k)).join(' · ') : '<span class="cc">none</span>')
+    + '<h4>Files</h4>' + (c.paths || []).map(g => '<code>' + esc(g) + '</code>').join(' ')
+    + ((c.watch || []).length ? '<h4>Owner-review zones</h4>' + c.watch.map(g => '<code>' + esc(g) + '</code>').join(' ') : '');
+  el.querySelectorAll('.chip').forEach(ch => { ch.onclick = () => selectComponent(ch.dataset.c); });
+  return el;
+}
+
 function selectComponent(id) {
   sel = { component: id, thread: null, pr: null, mode: 'list' };
   document.querySelectorAll('.node').forEach(n => n.classList.toggle('sel', n.id === 'n-' + id));
@@ -182,6 +212,7 @@ function selectComponent(id) {
   $('#ptitle').textContent = c.name;
   const list = $('#plist'); list.style.display = 'block'; $('#thread').style.display = 'none';
   list.innerHTML = '';
+  list.appendChild(componentDetails(id));
   const threads = STATE ? STATE.threads.filter(t => t.components.includes(id)) : [];
   const prs = STATE ? STATE.prs.filter(p => p.components.includes(id)) : [];
   for (const t of threads) {
@@ -207,11 +238,19 @@ function showComposer(placeholder) {
   $('#cbody').placeholder = placeholder || ('Reply… ' + (MODEL.mention ? '(' + MODEL.mention + ' is summoned automatically)' : ''));
 }
 
-async function openIssue(number) {
-  sel.thread = number; sel.pr = null; sel.mode = 'issue';
+let threadSig = '';
+async function openIssue(number, opts = {}) {
+  if (!opts.keep) { sel.thread = number; sel.pr = null; sel.mode = 'issue'; }
   const t = await j('/api/thread?number=' + number);
-  $('#pcrumb').innerHTML = 'Thread · <a href="' + t.url + '" target="_blank">#' + number + ' on GitHub</a>';
-  $('#ptitle').textContent = t.title;
+  // Replies arrive after a send (agents post "working…" and then edit it), so the open thread is
+  // re-fetched on a timer; skip the re-render when nothing changed so scroll position is kept.
+  const sig = JSON.stringify([t.body, t.comments.map(c => [c.user, c.at, c.body])]);
+  if (opts.keep && sig === threadSig) return;
+  threadSig = sig;
+  if (!opts.keep) {
+    $('#pcrumb').innerHTML = 'Thread · <a href="' + t.url + '" target="_blank">#' + number + ' on GitHub</a>';
+    $('#ptitle').textContent = t.title;
+  }
   $('#plist').style.display = 'none';
   const th = $('#thread'); th.style.display = 'flex'; th.innerHTML = '';
   const add = (user, at, body, mine) => {
@@ -222,14 +261,15 @@ async function openIssue(number) {
   add(t.user || 'owner', null, t.body, true);
   for (const c of t.comments) add(c.user, c.at, c.body, MODEL.viewer && c.user === MODEL.viewer);
   th.scrollTop = th.scrollHeight;
-  showComposer('Reply on #' + number + '…');
+  if (!opts.keep) showComposer('Reply on #' + number + '…');
 }
 
-function openItem(it) {
+async function openItem(it) {
   if (it.kind === 'issue') return openIssue(it.number);
   sel = { component: it.components[0] || null, thread: it.number, pr: it.number, mode: 'pr' };
   if (sel.component) document.querySelectorAll('.node').forEach(n => n.classList.toggle('sel', n.id === 'n-' + sel.component));
-  openIssue(it.number); // a PR's conversation is its issue thread
+  await openIssue(it.number); // a PR's conversation is its issue thread (await: it sets the crumb too)
+  sel.mode = 'pr';
   $('#pcrumb').innerHTML = 'Pull request · <a href="' + (it.url || it.html_url || '#') + '" target="_blank">PR #' + it.number + '</a>'
     + (it.branch ? ' · ' + it.branch : '');
 }
@@ -301,7 +341,12 @@ async function refreshHeat() {
   document.querySelector('#htitle').textContent = MODEL.system + ' — architecture mission control';
   renderMap();
   await refreshState();
+  refreshRuntime(); // load health once so component details can show it
   setInterval(refreshState, 30000);
+  // Keep the open conversation live: new and edited replies show without re-opening the thread.
+  setInterval(() => {
+    if (sel.thread && (sel.mode === 'issue' || sel.mode === 'pr') && !document.hidden) openIssue(sel.thread, { keep: true }).catch(() => {});
+  }, 10000);
   setInterval(() => { if (lens() === 'runtime') refreshRuntime(); }, 30000);
 })();
 </script>
