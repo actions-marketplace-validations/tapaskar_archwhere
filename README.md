@@ -139,6 +139,75 @@ The bus is GitHub — archwhere never talks to an agent directly:
 Which mention the UI appends is yours: `arch/mission.config.json →
 {"agentMention": "@your-bot"}` (env `AGENT_MENTION` overrides; `""` disables).
 
+### Several agents (Claude + Kiro)
+
+Put more than one agent on the board and choose who answers each message:
+
+```bash
+AGENT_MENTIONS="Claude=@claude,Kiro=@kiro" npx archwhere mission
+```
+
+or in `arch/mission.config.json`:
+
+```json
+{ "agents": [ { "name": "Claude", "mention": "@claude" }, { "name": "Kiro", "mention": "@kiro" } ] }
+```
+
+`AGENT_MENTIONS` beats `AGENT_MENTION`, which beats `agents`, which beats `agentMention`. The old
+single-agent settings still work, and the first agent is the default.
+
+- **The Ask selector.** With two or more agents, an **Ask:** menu sits next to Send: each agent, plus
+  **Both** (two agents) or **All** (three or more). Your last choice is remembered in the browser.
+  With one agent you see nothing new.
+- **A typed mention wins.** If your message already names any known agent (`@kiro where is…`),
+  archwhere adds nothing, so a hand-typed `@kiro` never summons Claude as well.
+- **Who replied.** Each reply is tagged with the agent: the Claude GitHub App by its bot login, and
+  bridge replies by their `🤖 **Kiro** (via archwhere bridge)` header.
+
+**`archwhere bridge`** lets a CLI agent with no GitHub App answer board threads. Kiro is the example.
+It runs on your machine, polls the repo for new issues and comments that mention the agent, runs the
+CLI once per mention in a read-only checkout, and posts the answer back as a comment:
+
+```bash
+# once: install the read-only Kiro agent (fs_read only, no shell, no writes, no MCP)
+mkdir -p ~/.kiro/agents && cp node_modules/archwhere/examples/kiro/archwhere-readonly.json ~/.kiro/agents/
+
+git clone --depth 1 https://github.com/you/repo ~/ro/repo   # a separate checkout just for reading
+npx archwhere bridge --repo you/repo --mention @kiro --cwd ~/ro/repo \
+  --cmd "kiro-cli chat --no-interactive --agent archwhere-readonly --trust-tools=fs_read"
+```
+
+| Flag | Default | |
+|---|---|---|
+| `--mention` | (required) | handle to watch for, e.g. `@kiro` |
+| `--cmd` | (required) | agent command; the prompt is added as the last argument |
+| `--cwd` | current dir | where the agent runs: use a read-only checkout |
+| `--repo` | `origin` of `--cwd` | `owner/name` |
+| `--name` | the mention without `@` | name in the reply header |
+| `--allow` | | extra GitHub logins allowed to summon it (the repo owner always is) |
+| `--interval` / `--timeout` | 30 s / 300 s | poll interval and per-answer time limit |
+| `--state` | `~/.archwhere/bridge-<owner>-<repo>-<mention>.json` | cursor + seen-set, so restarts never answer twice |
+| `--once` | | poll once, answer, exit (for cron and tests) |
+
+It uses the same token as mission control (`GITHUB_TOKEN` or `gh auth token`). It runs one job at a
+time, strips ANSI colour codes, caps replies at about 60k characters, and posts a short "couldn't
+answer" note when the agent fails or times out.
+
+**Security notes**
+
+- **Allow-list.** Only the repo owner and the logins in `--allow` can summon it. Bots are never
+  answered, and neither are the bridge's own replies (it spots them by the header). On a public repo
+  this matters: anyone can comment, and the comment becomes the agent's prompt.
+- **Read-only.** Point `--cwd` at a separate checkout that nothing deploys from, and give the agent
+  read-only tools: the `archwhere-readonly` Kiro agent above exposes only `fs_read`, and
+  `--trust-tools=fs_read` pre-approves only that tool.
+- **Never trust all tools.** The bridge refuses to start if `--cmd` contains `-a` or
+  `--trust-all-tools`.
+- **No shell.** The command is split once and run with `execFile` and an argument array. The thread
+  text goes in as one argument and is never shell-interpolated.
+- **No pings.** `@handles` in the agent's answer are broken with a zero-width space, so an answer
+  can't summon another agent or notify people.
+
 ## The model
 
 One file, declared judgment — not an auto-extracted import hairball:
