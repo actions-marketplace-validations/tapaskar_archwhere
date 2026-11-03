@@ -37,7 +37,7 @@ flowchart LR
 |---|---|---|---|---|
 | **Core mapper** | core |  | Model loading, glob mapping, renderers. | `lib/where.js` `bin/**` `lib/infer.js` |
 | **Rail & BYOA logic** | core |  | Attention-rail categorisation, agent mention. | `lib/rail.js` |
-| **Mission control** | product | Node http · localhost | Local UI server + page. | `lib/mission.js` `ui/**` |
+| **Mission control** | product | Node http · localhost | Local UI server + page, and the bridge that lets CLI agents answer board threads. | `lib/mission.js` `lib/bridge.js` `lib/gh.js` `ui/**` |
 | **Archify compiler** | feature |  | Model → Archify IR. | `lib/archify.js` |
 | **Action & listeners** | infra | GitHub Actions | GitHub Action, consumer workflow templates, agent skill. | `action.yml` `templates/**` `SKILL.md` |
 | **Examples** | docs |  | Meridian fictional model. | `examples/**` |

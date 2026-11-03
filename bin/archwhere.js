@@ -16,10 +16,13 @@ archwhere — which architecture component does this change touch?
   archwhere heat [--days 30]                                     change heat per component from git history
   archwhere ir   [--out arch/build]                              Archify IR diagrams
   archwhere mission [--port 4610]                                mission-control UI
+  archwhere bridge --mention @kiro --cmd "kiro-cli chat --no-interactive" [--cwd DIR]
+                 [--repo o/r] [--name Kiro] [--allow a,b] [--interval 30] [--timeout 300]
+                 [--state FILE] [--once]                         let a local CLI agent answer board threads
   archwhere init [--starter]                                     draft the model from your repo + write workflows; --starter copies the example model instead
 
 Common: --arch <path to architecture.json> · env ARCHWHERE_MODEL
-Mission env: GITHUB_TOKEN (or gh auth token) · AGENT_MENTION · RUNTIME_URL/RUNTIME_BASIC
+Mission env: GITHUB_TOKEN (or gh auth token) · AGENT_MENTIONS="Claude=@claude,Kiro=@kiro" (or AGENT_MENTION) · RUNTIME_URL/RUNTIME_BASIC
 `;
 
 function arg(args, flag) { const i = args.indexOf(flag); return i === -1 ? null : args[i + 1]; }
@@ -45,6 +48,8 @@ function main() {
     });
     return;
   }
+
+  if (cmd === 'bridge') return bridge(root, args);
 
   const arch = W.loadArch(root, archPath);
 
@@ -140,6 +145,39 @@ function main() {
   else if (format === 'md') process.stdout.write(W.renderMd(arch, res, flags) + '\n');
   else if (format === 'html') process.stdout.write(W.renderHtml(arch, res, flags, { base }) + '\n');
   else process.stdout.write(W.renderText(arch, res, flags) + '\n');
+}
+
+function bridge(root, args) {
+  const B = require('../lib/bridge');
+  const G = require('../lib/gh');
+  const { parseRepo } = require('../lib/rail');
+  const a = B.parseBridgeArgs(args);
+  if (!a.mention || !a.cmd) { console.error('bridge needs --mention @name and --cmd "<agent command>"\n' + USAGE); process.exit(2); }
+  if (args.includes('--trust-all-tools') || /(^|\s)(-a|--trust-all-tools)(\s|$)/.test(a.cmd)) {
+    console.error('refusing: the bridge must not run an agent with all tools trusted. Use a read-only agent/tool list.');
+    process.exit(2);
+  }
+  const cwd = path.resolve(a.cwd || root);
+  let owner, repo;
+  if (a.repo) [owner, repo] = a.repo.split('/');
+  else {
+    const { execFileSync } = require('child_process');
+    ({ owner, repo } = parseRepo(execFileSync('git', ['remote', 'get-url', 'origin'], { cwd, encoding: 'utf8' })));
+  }
+  if (!owner || !repo) { console.error('--repo must look like owner/name'); process.exit(2); }
+  const token = G.githubToken();
+  if (!token) { console.error('no GitHub token: set GITHUB_TOKEN or run `gh auth login`'); process.exit(2); }
+  const b = B.makeBridge({
+    gh: G.makeGh({ token }), owner, repo, mention: a.mention, name: a.name, cmd: a.cmd, cwd,
+    allow: a.allow, intervalSec: a.interval, timeoutMs: a.timeout * 1000, statePath: a.state
+  });
+  console.log(`archwhere bridge: ${owner}/${repo}  ${b.mention} -> ${b.name}  cwd ${cwd}  allow ${b.allow.join(',')}  state ${b.statePath}`);
+  if (a.once) {
+    b.runOnce().then(r => { console.log(`done: ${r.length} job(s)`); })
+      .catch(e => { console.error('bridge failed: ' + e.message); process.exit(1); });
+    return;
+  }
+  b.start();
 }
 
 function init(root, infer) {

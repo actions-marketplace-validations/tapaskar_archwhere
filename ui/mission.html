@@ -61,6 +61,10 @@
   .who { font-size:10.5px; color:#6b7180; margin-bottom:2px; } .who b { color:#1F2433; }
   .bar { display:flex; gap:8px; padding:10px 16px; border-top:1px solid #EEE; }
   .bar textarea { flex:1; border:1.4px solid #C9C9C4; border-radius:8px; padding:8px 10px; font:inherit; font-size:12.5px; resize:vertical; min-height:38px; }
+  .bar select { border:1.4px solid #C9C9C4; border-radius:8px; padding:0 6px; font:inherit; font-size:12px; background:#fff; color:#1F2433; }
+  .bar .ask { display:flex; flex-direction:column; justify-content:center; gap:2px; font-size:10.5px; color:#6b7180; }
+  .bar .ask select { height:28px; }
+  .agent { display:inline-block; font-size:10px; font-weight:700; color:#fff; background:#7E3FA0; border-radius:7px; padding:0 6px; margin-left:4px; }
   .bar button { background:#1F2433; color:#fff; border:0; border-radius:8px; padding:0 16px; font-size:12.5px; cursor:pointer; }
   .cdet { border:1.3px solid #E3E3DE; border-radius:8px; padding:10px 12px; font-size:12px; margin-bottom:10px; background:#fff; line-height:1.45; }
   .cdet h4 { margin:8px 0 3px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:#6b7180; }
@@ -90,6 +94,7 @@
     <div id="thread"></div>
     <div class="bar" id="composer" style="display:none">
       <textarea id="cbody" placeholder=""></textarea>
+      <label class="ask" id="caskwrap" style="display:none">Ask:<select id="cask" title="Which agent to summon"></select></label>
       <button id="csend">Send</button>
     </div>
   </div>
@@ -231,11 +236,35 @@ function selectComponent(id) {
   showComposer(null);
 }
 
+// "Ask:" selector — which agent(s) a message summons. Hidden with one agent; remembers the last choice.
+const ASK_KEY = 'archwhere.ask';
+function agents() { return (MODEL && MODEL.agents) || []; }
+function renderAsk() {
+  const list = agents(), s = $('#cask');
+  if (list.length < 2) { $('#caskwrap').style.display = 'none'; return; }
+  const opts = list.map(a => [a.name, a.name]).concat([['all', list.length === 2 ? 'Both' : 'All']]);
+  s.innerHTML = '';
+  for (const [v, label] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = label; s.appendChild(o); }
+  let saved = null; try { saved = localStorage.getItem(ASK_KEY); } catch { /* private mode */ }
+  s.value = opts.some(([v]) => v === saved) ? saved : list[0].name;
+  s.onchange = () => { try { localStorage.setItem(ASK_KEY, s.value); } catch { /* ignore */ } showComposer($('#cbody').dataset.ph || undefined); };
+  $('#caskwrap').style.display = 'flex';
+}
+function askChoice() { return agents().length < 2 ? undefined : $('#cask').value; }
+function askLabel() {
+  const list = agents(); if (!list.length) return '';
+  const c = askChoice();
+  if (!c) return list[0].mention;
+  return c === 'all' ? list.map(a => a.mention).join(' + ') : (list.find(a => a.name === c) || list[0]).mention;
+}
+
 function showComposer(placeholder) {
   const comp = $('#composer');
   if (placeholder === null && sel.mode === 'list') { comp.style.display = 'none'; return; }
   comp.style.display = 'flex';
-  $('#cbody').placeholder = placeholder || ('Reply… ' + (MODEL.mention ? '(' + MODEL.mention + ' is summoned automatically)' : ''));
+  $('#cbody').dataset.ph = placeholder || '';
+  const who = askLabel();
+  $('#cbody').placeholder = (placeholder || 'Reply…') + (who ? ' (' + who + ' summoned unless you @mention one yourself)' : '');
 }
 
 let threadSig = '';
@@ -253,13 +282,15 @@ async function openIssue(number, opts = {}) {
   }
   $('#plist').style.display = 'none';
   const th = $('#thread'); th.style.display = 'flex'; th.innerHTML = '';
-  const add = (user, at, body, mine) => {
-    const m = document.createElement('div'); m.className = 'msg ' + (mine ? 'me' : 'them');
-    m.innerHTML = '<div class="who"><b>' + user + '</b> · ' + new Date(at || Date.now()).toLocaleString() + '</div>';
+  const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const add = (user, at, body, mine, agent) => {
+    const m = document.createElement('div'); m.className = 'msg ' + (mine && !agent ? 'me' : 'them');
+    m.innerHTML = '<div class="who"><b>' + esc(user) + '</b>' + (agent ? '<span class="agent">' + esc(agent) + '</span>' : '')
+      + ' · ' + new Date(at || Date.now()).toLocaleString() + '</div>';
     m.appendChild(document.createTextNode(body || '')); th.appendChild(m);
   };
   add(t.user || 'owner', null, t.body, true);
-  for (const c of t.comments) add(c.user, c.at, c.body, MODEL.viewer && c.user === MODEL.viewer);
+  for (const c of t.comments) add(c.user, c.at, c.body, MODEL.viewer && c.user === MODEL.viewer, c.agent);
   th.scrollTop = th.scrollHeight;
   if (!opts.keep) showComposer('Reply on #' + number + '…');
 }
@@ -280,10 +311,10 @@ $('#csend').onclick = async () => {
   try {
     if (sel.mode === 'new' && sel.component) {
       const lines = body.split('\n');
-      const r = await j('/api/thread', { method: 'POST', body: JSON.stringify({ component: sel.component, title: lines[0].slice(0, 80), body }) });
+      const r = await j('/api/thread', { method: 'POST', body: JSON.stringify({ component: sel.component, title: lines[0].slice(0, 80), body, ask: askChoice() }) });
       await refreshState(); await openIssue(r.number);
     } else if (sel.thread) {
-      await j('/api/comment', { method: 'POST', body: JSON.stringify({ number: sel.thread, body }) });
+      await j('/api/comment', { method: 'POST', body: JSON.stringify({ number: sel.thread, body, ask: askChoice() }) });
       await openIssue(sel.thread);
     }
     $('#cbody').value = '';
@@ -340,6 +371,7 @@ async function refreshHeat() {
   document.title = MODEL.system + ' — mission control';
   document.querySelector('#htitle').textContent = MODEL.system + ' — architecture mission control';
   renderMap();
+  renderAsk();
   await refreshState();
   refreshRuntime(); // load health once so component details can show it
   setInterval(refreshState, 30000);
