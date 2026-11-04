@@ -119,3 +119,9 @@ test('multi-agent: replyAgent labels who answered', () => {
   assert.strictEqual(L.replyAgent({ user: 'tapaskar', body: 'just me' }, agents), null);
   assert.strictEqual(L.replyAgent({ user: 'dependabot[bot]', body: 'bump' }, agents), null);
 });
+
+test('touchedComponents: each component once, and only ones on the map', () => {
+  const a = { components: { x: {}, y: {} } };
+  assert.deepStrictEqual(L.touchedComponents(a, [{ components: ['x', 'gone'] }, { components: ['x', 'y'] }, {}]), ['x', 'y']);
+  assert.deepStrictEqual(L.touchedComponents(a), []);
+});

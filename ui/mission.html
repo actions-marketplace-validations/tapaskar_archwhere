@@ -74,6 +74,17 @@
   .cdet .st-ok { color:#1E7A46; } .cdet .st-warn { color:#A86400; } .cdet .st-bad { color:#B42318; }
   .ghost { background:none; border:0; color:#2F4AC0; font-size:11.5px; cursor:pointer; padding:0; }
   a { color:#2F4AC0; }
+  #systemflow { display:none; }
+  body[data-lens="flow"] #systemflow { display:block; }
+  body[data-lens="flow"] #lanes { display:none; }
+  #systemflow h3 { font-size:13px; margin:0 0 6px; }
+  #systemflow .note { font-size:12px; color:#6b7180; margin:0 0 8px; }
+  #systemflow details { border:1.3px solid #E3E3DE; border-radius:8px; padding:9px 12px; margin-top:8px; font-size:13px; }
+  #systemflow summary { cursor:pointer; font-weight:600; }
+  #systemflow summary span { font-weight:400; color:#6b7180; font-size:12px; }
+  #systemflow .dg { overflow:auto; margin-top:8px; }
+  #systemflow .dg svg { max-width:100%; height:auto; }
+  #systemflow pre { white-space:pre-wrap; font-size:11px; }
 </style></head><body data-lens="changes">
 <header>
   <h1 id="htitle">mission control</h1>
@@ -82,12 +93,13 @@
     <button data-l="changes" class="on">Changes 💬</button>
     <button data-l="heat">Heat 🔥</button>
     <button data-l="runtime">Runtime ●</button>
+    <button data-l="flow">System flow</button>
   </div>
   <span id="meta">loading…</span>
 </header>
 <div class="wrap">
   <div id="rail"><h2>NEEDS YOUR ATTENTION</h2><div id="railbody">loading…</div></div>
-  <div id="map"><div id="rtnote"></div><div id="heatnote"></div><div id="lanes"></div></div>
+  <div id="map"><div id="rtnote"></div><div id="heatnote"></div><div id="lanes"></div><div id="systemflow"></div></div>
   <div id="panel">
     <div class="phead"><div class="crumb" id="pcrumb">Select a component or a rail item</div><div class="title" id="ptitle">—</div></div>
     <div id="plist"></div>
@@ -114,7 +126,67 @@ document.querySelectorAll('.lens button').forEach(b => b.onclick = () => {
   document.body.dataset.lens = b.dataset.l;
   if (b.dataset.l === 'runtime') refreshRuntime();
   if (b.dataset.l === 'heat') refreshHeat();
+  if (b.dataset.l === 'flow') showSystemFlow().catch(e => { $('#systemflow').textContent = 'Could not load the system flow: ' + e.message; });
 });
+
+// ---- System flow lens: the Mermaid system map and every process flow, drawn in the page.
+// The library is fetched only when this lens opens, pinned by hash.
+const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+const MERMAID_SRI = 'sha384-rbtjAdnIQE/aQJGEgXrVUlMibdfTSa4PQju4HDhN3sR2PmaKFzhEafuePsl9H/9I';
+let mermaidLoad = null, flowSeq = 0, flowShown = false;
+function loadMermaid() {
+  if (!mermaidLoad) mermaidLoad = new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = MERMAID_SRC; s.integrity = MERMAID_SRI; s.crossOrigin = 'anonymous';
+    s.onload = () => { window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', flowchart: { useMaxWidth: true } }); ok(window.mermaid); };
+    s.onerror = () => no(new Error('the diagram library did not load'));
+    document.head.append(s);
+  });
+  return mermaidLoad;
+}
+async function drawFlow(box, text) {
+  try {
+    const m = await loadMermaid();
+    box.innerHTML = (await m.render('sf' + (++flowSeq), text)).svg;   // Mermaid strict mode, from our own architecture file
+  } catch (e) {
+    const pre = document.createElement('pre');
+    pre.textContent = 'Could not draw this (' + e.message + '). Source:\n\n' + text;
+    box.replaceChildren(pre);
+  }
+}
+async function showSystemFlow() {
+  if (flowShown) return;
+  flowShown = true;
+  const root = $('#systemflow');
+  root.textContent = 'Loading…';
+  let d;
+  try { d = await j('/api/system-flow'); } catch (e) { flowShown = false; throw e; }
+  root.textContent = '';
+  const h = document.createElement('h3');
+  h.textContent = 'System map';
+  const note = document.createElement('p');
+  note.className = 'note';
+  note.textContent = d.touched ? d.touched + ' component(s) with an open PR are highlighted.' : 'No component has an open PR.';
+  const sys = document.createElement('div');
+  sys.className = 'dg';
+  const fh = document.createElement('h3');
+  fh.textContent = d.flows.length ? 'Process flows (' + d.flows.length + ')' : 'No process flows yet: add them under "flows" in architecture.json';
+  fh.style.marginTop = '16px';
+  root.append(h, note, sys, fh);
+  for (const f of d.flows) {
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = f.name;
+    if (f.actor) { const a = document.createElement('span'); a.textContent = ' · ' + f.actor; sum.append(a); }
+    const box = document.createElement('div');
+    box.className = 'dg';
+    det.append(sum, box);
+    // Drawn on first open: Mermaid can't measure a hidden element.
+    det.addEventListener('toggle', () => { if (det.open && !box.firstChild) drawFlow(box, f.diagram); });
+    root.append(det);
+  }
+  await drawFlow(sys, d.map);
+}
 
 function laneTitle(i) { return (MODEL.laneTitles && MODEL.laneTitles[i]) || 'LANE ' + (i + 1); }
 
