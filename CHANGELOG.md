@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.0 — 2026-11-04
+
+The first major release. The CLI commands, the `architecture.json` model and the GitHub Action
+inputs are now stable: from here, a breaking change to any of them means a new major version.
+Nothing breaks when upgrading from 0.3.0.
+
+### Added
+- **System flow lens** in mission control: the Mermaid system map, with components that have an
+  open PR highlighted, and every process flow as a sequence diagram, in the same page as the
+  attention rail. Mermaid 11.4.1 loads from jsDelivr only when the lens opens, pinned by SHA-384,
+  in strict mode. Needs network access for that one file.
+- `GET /api/system-flow`, read-only. It still answers without GitHub, with no PRs highlighted.
+- `flowDiagram()` and `systemFlow()` in `lib/where.js`, `touchedComponents()` in `lib/rail.js`.
+
 ## 0.3.0 — 2026-11-03
 
 ### Added

@@ -120,11 +120,14 @@ flowchart LR
   PRs ready to merge (the Merge button uses *your* token; agents never merge).
 - **Click any component → open a thread.** Threads are GitHub issues labelled
   `component:<id>` (auto-created). Your agent answers; the reply appears on the map.
-- **Four lenses** — Structure / Changes / Heat / Runtime.
+- **Five lenses** — Structure / Changes / Heat / Runtime / System flow.
   **Heat** colours components by git churn over the last 30 days — where your
   agents are actually spending effort. **Runtime** colours them by live health
   from any endpoint you point `RUNTIME_URL` at, returning
   `{"components": {"<id>": {"status": "ok|warn|bad", "lines": ["…"]}}}`.
+  **System flow** draws the Mermaid system map, with components that have an open
+  PR highlighted, and every process flow in your model as a sequence diagram.
+  It fetches Mermaid 11 from jsDelivr when opened, pinned by hash.
 
 ### Bring your own coding agent
 

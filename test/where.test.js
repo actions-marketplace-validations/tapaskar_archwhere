@@ -61,3 +61,31 @@ test('provider renders on mermaid labels and the doc table', () => {
   assert.ok(doc.includes('| Provider |'));
   assert.ok(doc.includes('Stripe'));
 });
+
+test('flowDiagram: one line per participant and step, and text cannot break out of its line', () => {
+  const a = { components: { a: { name: 'Alpha' }, b: { name: 'Beta "x"' } } };
+  const d = W.flowDiagram(a, { steps: [{ from: 'a', to: 'b', label: 'asks;\n%%{init}%% #1' }, { from: 'b', to: 'b', label: '' }] });
+  const lines = d.split('\n');
+  assert.strictEqual(lines[0], 'sequenceDiagram');
+  assert.strictEqual(lines.length, 6);
+  assert.ok(lines.includes('  participant p1 as Beta x'));
+  assert.doesNotMatch(d, /[;#%"]/);
+});
+
+test('systemFlow: the map marks touched components, and a model without flows is fine', () => {
+  const sf = W.systemFlow(arch, [Object.keys(arch.components)[0]]);
+  assert.strictEqual(sf.touched, 1);
+  assert.match(sf.map, /touched/);
+  assert.strictEqual(sf.flows.length, Object.keys(arch.flows).length);
+  for (const f of sf.flows) assert.match(f.diagram, /^sequenceDiagram/);
+  assert.deepStrictEqual(W.systemFlow({ components: { a: { name: 'A', kind: 'core' } } }).flows, []);
+});
+
+test('the System flow lens loads Mermaid pinned by hash, in strict mode, only when opened', () => {
+  const html = require('fs').readFileSync(path.join(__dirname, '..', 'ui', 'mission.html'), 'utf8');
+  assert.match(html, /<button data-l="flow">System flow<\/button>/);
+  assert.match(html, /MERMAID_SRI = 'sha384-[A-Za-z0-9+\/=]+'/);
+  assert.match(html, /securityLevel: 'strict'/);
+  assert.doesNotMatch(html, /<script src=/, 'not loaded until the lens opens');
+  assert.match(require('fs').readFileSync(path.join(__dirname, '..', 'lib', 'mission.js'), 'utf8'), /u\.pathname === '\/api\/system-flow'/);
+});
