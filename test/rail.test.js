@@ -65,3 +65,57 @@ test('BYOA: resolveAgentMention and withSummon', () => {
   assert.ok(L.withSummon('hello', '@mybot').endsWith('@mybot'));
   assert.strictEqual(L.withSummon('hey @MyBot look', '@mybot'), 'hey @MyBot look');
 });
+
+test('multi-agent: parseAgentMentions and resolveAgents', () => {
+  assert.deepStrictEqual(L.parseAgentMentions('Claude=@claude, Kiro=@kiro'),
+    [{ name: 'Claude', mention: '@claude' }, { name: 'Kiro', mention: '@kiro' }]);
+  assert.deepStrictEqual(L.parseAgentMentions('@kiro,Bot=mybot,,Dup=@KIRO'),
+    [{ name: 'kiro', mention: '@kiro' }, { name: 'Bot', mention: '@mybot' }]);
+  // default, single env, single config, agents config, env list wins
+  assert.deepStrictEqual(L.resolveAgents({}, {}), [{ name: 'Claude', mention: '@claude' }]);
+  assert.deepStrictEqual(L.resolveAgents({ AGENT_MENTION: '@mybot' }, { agents: [{ name: 'X', mention: '@x' }] }), [{ name: 'mybot', mention: '@mybot' }]);
+  assert.deepStrictEqual(L.resolveAgents({}, { agentMention: '@bot' }), [{ name: 'bot', mention: '@bot' }]);
+  assert.deepStrictEqual(L.resolveAgents({}, { agentMention: '' }), []);
+  assert.deepStrictEqual(L.resolveAgents({ AGENT_MENTION: '' }, {}), []);
+  assert.deepStrictEqual(L.resolveAgents({}, { agents: [{ name: 'Claude', mention: '@claude' }, { mention: 'kiro' }] }),
+    [{ name: 'Claude', mention: '@claude' }, { name: 'kiro', mention: '@kiro' }]);
+  assert.deepStrictEqual(L.resolveAgents({ AGENT_MENTIONS: 'Claude=@claude,Kiro=@kiro', AGENT_MENTION: '@x' }, { agents: [] }).map(a => a.name), ['Claude', 'Kiro']);
+});
+
+test('multi-agent: hasMention is a whole-handle match', () => {
+  assert.ok(L.hasMention('hi @Kiro, why?', '@kiro'));
+  assert.ok(L.hasMention('@kiro', '@kiro'));
+  assert.ok(!L.hasMention('hi @kirotron', '@kiro'));
+  assert.ok(!L.hasMention('mail me@kiro.dev', '@kiro'));
+  assert.ok(!L.hasMention('anything', ''));
+});
+
+test('multi-agent: selectMentions and multi-mention summon', () => {
+  const agents = L.resolveAgents({ AGENT_MENTIONS: 'Claude=@claude,Kiro=@kiro' });
+  const known = agents.map(a => a.mention);
+  assert.deepStrictEqual(L.selectMentions(agents, 'Kiro'), ['@kiro']);
+  assert.deepStrictEqual(L.selectMentions(agents, 'both'), ['@claude', '@kiro']);
+  assert.deepStrictEqual(L.selectMentions(agents, 'all'), ['@claude', '@kiro']);
+  assert.deepStrictEqual(L.selectMentions(agents, undefined), ['@claude']);
+  assert.deepStrictEqual(L.selectMentions(agents, 'nobody'), ['@claude']);
+  assert.deepStrictEqual(L.selectMentions([], 'all'), []);
+  assert.strictEqual(L.withSummon('why?', ['@claude', '@kiro'], '', known), 'why?\n\n@claude @kiro');
+  assert.strictEqual(L.withSummon('why?', ['@kiro'], ' please look', known), 'why?\n\n@kiro please look');
+  // back-compat: a single string mention still works
+  assert.strictEqual(L.withSummon('why?', '@claude'), 'why?\n\n@claude');
+});
+
+test('multi-agent: a typed mention wins (never also summons the selected agent)', () => {
+  const known = ['@claude', '@kiro'];
+  assert.strictEqual(L.withSummon('@kiro what does rail.js do?', ['@claude'], ' suffix', known), '@kiro what does rail.js do?');
+  assert.strictEqual(L.withSummon('ask @Claude here', ['@kiro'], '', known), 'ask @Claude here');
+  assert.strictEqual(L.withSummon('ask @kirotron', ['@kiro'], '', known), 'ask @kirotron\n\n@kiro');
+});
+
+test('multi-agent: replyAgent labels who answered', () => {
+  const agents = [{ name: 'Claude', mention: '@claude' }, { name: 'Kiro', mention: '@kiro' }];
+  assert.strictEqual(L.replyAgent({ user: 'claude[bot]', body: 'done' }, agents), 'Claude');
+  assert.strictEqual(L.replyAgent({ user: 'tapaskar', body: '🤖 **Kiro** (via archwhere bridge)\n\nhi' }, agents), 'Kiro');
+  assert.strictEqual(L.replyAgent({ user: 'tapaskar', body: 'just me' }, agents), null);
+  assert.strictEqual(L.replyAgent({ user: 'dependabot[bot]', body: 'bump' }, agents), null);
+});
